@@ -37,7 +37,7 @@ class Model(object):
         """Model function for Logistic Regression."""
         features = tf.compat.v1.placeholder(tf.float32, shape=[None, 784], name='features')
         labels = tf.compat.v1.placeholder(tf.int64, shape=[None,], name='labels')
-        logits = tf.compat.v1.keras.layers.Dense(inputs=features, units=self.num_classes, kernel_regularizer=tf.compat.v1.contrib.layers.l2_regularizer(0.001))(features)
+        logits = tf.compat.v1.keras.layers.Dense(inputs=features, units=self.num_classes, kernel_regularizer=tf.compat.v1.keras.regularizers.l2(0.001))(features)
         predictions = {
             "classes": tf.argmax(input=logits, axis=1),
             "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
