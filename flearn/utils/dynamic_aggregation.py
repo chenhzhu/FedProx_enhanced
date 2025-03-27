@@ -75,7 +75,11 @@ class DynamicAggregator:
             total_weight += weight
             
             for i, v in enumerate(soln):
-                base[i] += weight * v.astype(np.float64)
+                # 修改这里：检查v是否为标量，如果是则直接使用，不调用astype
+                if isinstance(v, (int, float)):
+                    base[i] += weight * v
+                else:
+                    base[i] += weight * v.astype(np.float64)
         
         if total_weight == 0:
             return self.server.latest_model  # 防止除零错误
