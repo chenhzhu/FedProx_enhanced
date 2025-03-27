@@ -6,6 +6,7 @@ import random
 from tensorflow.keras.datasets import mnist
 import matplotlib.pyplot as plt
 import shutil
+from PIL import Image
 
 def create_enhanced_mnist_dataset(output_dir="data/enhanced_mnist", num_clients=100):
     """
@@ -121,32 +122,41 @@ def create_enhanced_mnist_dataset(output_dir="data/enhanced_mnist", num_clients=
             # 旋转图像
             angle = np.random.uniform(-30, 30)
             for i in range(len(client_x)):
-                # 使用TensorFlow进行旋转
-                img = tf.keras.preprocessing.image.array_to_img(client_x[i].reshape(28, 28, 1))
-                img = tf.keras.preprocessing.image.img_to_array(
-                    tf.keras.preprocessing.image.random_rotation(img, angle)
-                )
-                client_x[i] = img.reshape(28, 28) / 255.0
+                # 使用PIL进行旋转
+                img = Image.fromarray((client_x[i] * 255).astype(np.uint8))
+                img = img.rotate(angle)
+                client_x[i] = np.array(img).astype(np.float32) / 255.0
         elif transform_type == 'scale':
             # 缩放图像
             scale = np.random.uniform(0.7, 1.3)
             for i in range(len(client_x)):
-                # 使用TensorFlow进行缩放
-                img = tf.keras.preprocessing.image.array_to_img(client_x[i].reshape(28, 28, 1))
-                img = tf.keras.preprocessing.image.img_to_array(
-                    tf.keras.preprocessing.image.random_zoom(img, (scale, scale))
-                )
-                client_x[i] = img.reshape(28, 28) / 255.0
+                # 使用PIL进行缩放
+                img = Image.fromarray((client_x[i] * 255).astype(np.uint8))
+                new_size = int(28 * scale)
+                img = img.resize((new_size, new_size), Image.BILINEAR)
+                # 如果缩放后尺寸变大，需要裁剪
+                if new_size > 28:
+                    left = (new_size - 28) // 2
+                    top = (new_size - 28) // 2
+                    img = img.crop((left, top, left + 28, top + 28))
+                # 如果缩放后尺寸变小，需要填充
+                elif new_size < 28:
+                    new_img = Image.new('L', (28, 28), 0)
+                    left = (28 - new_size) // 2
+                    top = (28 - new_size) // 2
+                    new_img.paste(img, (left, top))
+                    img = new_img
+                client_x[i] = np.array(img).astype(np.float32) / 255.0
         elif transform_type == 'shift':
             # 平移图像
-            shift = np.random.uniform(-0.2, 0.2)
+            shift_x = int(np.random.uniform(-5, 5))
+            shift_y = int(np.random.uniform(-5, 5))
             for i in range(len(client_x)):
-                # 使用TensorFlow进行平移
-                img = tf.keras.preprocessing.image.array_to_img(client_x[i].reshape(28, 28, 1))
-                img = tf.keras.preprocessing.image.img_to_array(
-                    tf.keras.preprocessing.image.random_shift(img, shift, shift)
-                )
-                client_x[i] = img.reshape(28, 28) / 255.0
+                # 使用PIL进行平移
+                img = Image.fromarray((client_x[i] * 255).astype(np.uint8))
+                new_img = Image.new('L', (28, 28), 0)
+                new_img.paste(img, (shift_x, shift_y))
+                client_x[i] = np.array(new_img).astype(np.float32) / 255.0
         
         client_data[f'client_{client_id}'] = {
             'x': client_x.tolist(),

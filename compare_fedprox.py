@@ -92,15 +92,28 @@ def compare_algorithms(dataset='enhanced_mnist'):
     
     return comparison
 
+# def run_experiments(dataset='enhanced_mnist'):
+#     """运行原始FedProx和增强版FedProx实验"""
+#     # 运行原始FedProx
+#     print("运行原始FedProx...")
+#     os.system(f"python main_enhanced.py --algorithm fedprox --dataset {dataset} --use_enhanced False --num_rounds 50")
+    
+#     # 运行增强版FedProx
+#     print("运行增强版FedProx...")
+#     os.system(f"python main_enhanced.py --algorithm fedprox --dataset {dataset} --use_enhanced True --num_rounds 50")
+    
+#     # 比较结果
+#     return compare_algorithms(dataset)
+
 def run_experiments(dataset='enhanced_mnist'):
     """运行原始FedProx和增强版FedProx实验"""
     # 运行原始FedProx
     print("运行原始FedProx...")
-    os.system(f"python main_enhanced.py --algorithm fedprox --dataset {dataset} --use_enhanced False --num_rounds 50")
+    os.system(f"python main_enhanced.py --algorithm fedprox --dataset {dataset} --use_enhanced False --model mclr --num_rounds 50")
     
     # 运行增强版FedProx
     print("运行增强版FedProx...")
-    os.system(f"python main_enhanced.py --algorithm fedprox --dataset {dataset} --use_enhanced True --num_rounds 50")
+    os.system(f"python main_enhanced.py --algorithm fedprox --dataset {dataset} --use_enhanced True --model mclr --num_rounds 50")
     
     # 比较结果
     return compare_algorithms(dataset)

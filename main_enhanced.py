@@ -10,7 +10,8 @@ import os
 # 导入不同的训练器
 from flearn.trainers.fedavg import Server as FedAvgServer
 from flearn.trainers.fedprox import Server as FedProxServer
-from flearn.models.mnist.cnn import Model
+# 修改导入的模型 - 使用已有的mclr模型而不是不存在的cnn
+from flearn.models.mnist.mclr import Model
 
 def create_dataset_if_not_exists():
     """如果增强数据集不存在，则创建它"""
@@ -27,7 +28,8 @@ def main():
     # 训练参数
     parser.add_argument('--algorithm', type=str, default='fedprox', choices=['fedavg', 'fedprox'], 
                         help='使用的联邦学习算法')
-    parser.add_argument('--model', type=str, default='cnn', help='模型名称')
+    # 修改默认模型为mclr
+    parser.add_argument('--model', type=str, default='mclr', help='模型名称')
     parser.add_argument('--dataset', type=str, default='enhanced_mnist', help='数据集名称')
     parser.add_argument('--num_rounds', type=int, default=100, help='通信轮数')
     parser.add_argument('--eval_every', type=int, default=1, help='每隔多少轮评估一次')
@@ -50,7 +52,7 @@ def main():
     
     # 设置随机种子
     np.random.seed(args.seed)
-    tf.set_random_seed(args.seed)
+    tf.random.set_seed(args.seed)
     
     # 确保数据集存在
     create_dataset_if_not_exists()
@@ -67,8 +69,10 @@ def main():
         clients, groups, train_data, test_data = read_data(train_path, test_path)
     
     # 创建模型
-    if args.model == 'cnn':
-        model = Model(args.seed, args.learning_rate)
+    if args.model == 'mclr':
+        # 对于MNIST数据集，使用10个类别
+        optimizer = tf.compat.v1.train.GradientDescentOptimizer(args.learning_rate)
+        model = Model(10, optimizer, args.seed)
     else:
         raise ValueError("不支持的模型")
     
@@ -105,6 +109,8 @@ def main():
 def save_results(server, args):
     """保存训练结果和可视化"""
     results_dir = f"results/{args.algorithm}_{args.dataset}"
+    if args.use_enhanced:
+        results_dir += "_enhanced"
     os.makedirs(results_dir, exist_ok=True)
     
     # 保存准确率历史
@@ -137,8 +143,8 @@ def save_results(server, args):
         'params': vars(args),
         'test_accuracy': accuracy_history,
         'train_accuracy': train_accuracy_history,
-        'final_test_accuracy': accuracy_history[-1],
-        'final_train_accuracy': train_accuracy_history[-1]
+        'final_test_accuracy': accuracy_history[-1] if accuracy_history else 0,
+        'final_train_accuracy': train_accuracy_history[-1] if train_accuracy_history else 0
     }
     
     # 保存结果为JSON
