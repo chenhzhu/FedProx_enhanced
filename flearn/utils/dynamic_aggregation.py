@@ -79,6 +79,7 @@ class DynamicAggregator:
                 if isinstance(v, (int, float)):
                     base[i] += weight * v
                 else:
+                    print(f"var v is a {type(v)} with length {len(v)}")
                     base[i] += weight * v.astype(np.float64)
         
         if total_weight == 0:

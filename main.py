@@ -155,7 +155,7 @@ def main():
     dataset = read_data(train_path, test_path)
 
     # call appropriate trainer
-    t = optimizer(options, learner, dataset)
+    t = optimizer(params, learner, dataset)
     t.train()
     
 if __name__ == '__main__':

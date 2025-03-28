@@ -5,6 +5,8 @@
 # from tensorflow.python.training import optimizer
 # import tensorflow as tf
 
+# # 添加禁用TensorFlow 2.x行为的代码
+# tf.compat.v1.disable_v2_behavior()
 
 # class PerturbedGradientDescent(optimizer.Optimizer):
 #     """Implementation of Perturbed Gradient Descent, i.e., FedProx optimizer"""
@@ -35,9 +37,12 @@
 
 #         return control_flow_ops.group(*[var_update,])
 
+#     # 添加资源变量支持
+#     def _resource_apply_dense(self, grad, var):
+#         # 实现resource_apply_dense方法，避免NotImplementedError
+#         return self._apply_dense(grad, var)
     
 #     def _apply_sparse_shared(self, grad, var, indices, scatter_add):
-
 #         lr_t = math_ops.cast(self._lr_t, var.dtype.base_dtype)
 #         mu_t = math_ops.cast(self._mu_t, var.dtype.base_dtype)
 #         vstar = self.get_slot(var, "vstar")
@@ -55,13 +60,21 @@
 #         grad.values, var, grad.indices,
 #         lambda x, i, v: state_ops.scatter_add(x, i, v))
     
+#     # 添加资源变量支持
+#     def _resource_apply_sparse(self, grad, var, indices):
+#         # 实现resource_apply_sparse方法，避免NotImplementedError
+#         return self._apply_sparse_shared(
+#             grad, var, indices,
+#             lambda x, i, v: state_ops.scatter_add(x, i, v))
 
 #     def set_params(self, cog, client):
 #         with client.graph.as_default():
-#             all_vars = tf.trainable_variables()
+#             all_vars = tf.compat.v1.trainable_variables()  # 使用compat.v1版本
 #             for variable, value in zip(all_vars, cog):
 #                 vstar = self.get_slot(variable, "vstar")
 #                 vstar.load(value, client.sess)
+
+
 
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
@@ -105,7 +118,13 @@ class PerturbedGradientDescent(optimizer.Optimizer):
     # 添加资源变量支持
     def _resource_apply_dense(self, grad, var):
         # 实现resource_apply_dense方法，避免NotImplementedError
-        return self._apply_dense(grad, var)
+        lr_t = math_ops.cast(self._lr_t, var.dtype.base_dtype)
+        mu_t = math_ops.cast(self._mu_t, var.dtype.base_dtype)
+        vstar = self.get_slot(var, "vstar")
+
+        var_update = state_ops.assign_sub(var, lr_t*(grad + mu_t*(var-vstar)))
+        
+        return control_flow_ops.group(*[var_update,])
     
     def _apply_sparse_shared(self, grad, var, indices, scatter_add):
         lr_t = math_ops.cast(self._lr_t, var.dtype.base_dtype)
