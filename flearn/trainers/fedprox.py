@@ -101,7 +101,8 @@ class Server(BaseFedarated):
                         soln, stats = c.solve_inner(num_epochs=np.random.randint(low=1, high=self.num_epochs), batch_size=self.batch_size)
                     
                     # collect solutions from clients
-                    csolns.append((c.num_samples, soln))
+                    # csolns.append((c.num_samples, soln))
+                    csolns.append(soln)
                     
                     # track communication cost
                     self.metrics.update(rnd=i, cid=c.id, stats=stats)
