@@ -34,21 +34,46 @@ class Model(object):
             self.flops = tf.compat.v1.profiler.profile(self.graph, run_meta=metadata, cmd='scope', options=opts).total_float_ops
     
     def create_model(self, optimizer):
-        """Model function for Logistic Regression."""
-        features = tf.compat.v1.placeholder(tf.float32, shape=[None, 784], name='features')
-        labels = tf.compat.v1.placeholder(tf.int64, shape=[None,], name='labels')
-        logits = tf.compat.v1.keras.layers.Dense(inputs=features, units=self.num_classes, kernel_regularizer=tf.compat.v1.keras.regularizers.l2(0.001))(features)
-        predictions = {
-            "classes": tf.argmax(input=logits, axis=1),
-            "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
+        """创建多类逻辑回归模型"""
+        with self.graph.as_default():
+            features = tf.compat.v1.placeholder(tf.float32, shape=[None, 784], name='features')
+            labels = tf.compat.v1.placeholder(tf.float32, shape=[None, self.num_classes], name='labels')
+            
+            # 修正: 不要在构造函数中传递inputs参数
+            # logits = tf.compat.v1.keras.layers.Dense(inputs=features, units=self.num_classes, kernel_regularizer=tf.compat.v1.keras.regularizers.l2(0.001))(features)
+            
+            # 正确的方式: 先创建层，然后调用它
+            dense_layer = tf.compat.v1.keras.layers.Dense(
+                units=self.num_classes, 
+                kernel_regularizer=tf.compat.v1.keras.regularizers.l2(0.001)
+            )
+            logits = dense_layer(features)
+            
+            # 计算损失
+            loss = tf.reduce_mean(
+                tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)
+            )
+            
+            # 计算准确率
+            predictions = tf.argmax(logits, 1)
+            actuals = tf.argmax(labels, 1)
+            ones = tf.ones_like(predictions, dtype=tf.float32)
+            zeros = tf.zeros_like(predictions, dtype=tf.float32)
+            correct = tf.where(tf.equal(predictions, actuals), ones, zeros)
+            
+            # 性能指标
+            eval_metric_ops = {
+                'accuracy': tf.reduce_mean(correct)
             }
-        loss = tf.compat.v1.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
-
-        grads_and_vars = optimizer.compute_gradients(loss)
-        grads, _ = zip(*grads_and_vars)
-        train_op = optimizer.apply_gradients(grads_and_vars, global_step=tf.compat.v1.train.get_global_step())
-        eval_metric_ops = tf.count_nonzero(tf.equal(labels, predictions["classes"]))
-        return features, labels, train_op, grads, eval_metric_ops, loss
+            
+            # 训练操作
+            train_op = optimizer.minimize(loss)
+            
+            # 梯度计算
+            grads_and_vars = optimizer.compute_gradients(loss)
+            grads = [g for g, _ in grads_and_vars]
+            
+            return features, labels, train_op, grads, eval_metric_ops, loss
 
     def set_params(self, model_params=None):
         if model_params is not None:
@@ -101,7 +126,7 @@ class Model(object):
             data: dict of the form {'x': [list], 'y': [list]}
         '''
         with self.graph.as_default():
-            tot_correct, loss = self.sess.run([self.eval_metric_ops, self.loss], 
+            tot_correct, loss = self.sess.run([self.eval_metric_ops['accuracy'], self.loss], 
                 feed_dict={self.features: data['x'], self.labels: data['y']})
         return tot_correct, loss
     

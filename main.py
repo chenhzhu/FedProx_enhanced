@@ -17,8 +17,10 @@ MODEL_PARAMS = {
     'sent140.stacked_lstm': (25, 2, 100), # seq_len, num_classes, num_hidden 
     'sent140.stacked_lstm_no_embeddings': (25, 2, 100), # seq_len, num_classes, num_hidden
     'nist.mclr': (26,),  # num_classes
+    'nist.cnn': (26,),  # 添加CNN模型
     'mnist.mclr': (10,), # num_classes
     'mnist.cnn': (10,),  # num_classes
+    'enhanced_mnist.mclr': (10,), # num_classes
     'shakespeare.stacked_lstm': (80, 80, 256), # seq_len, emb_dim, num_hidden
     'synthetic.mclr': (10, ) # num_classes
 }
@@ -137,7 +139,9 @@ def read_options():
         'mu': parsed['mu'],
         'use_enhanced': use_enhanced,
         'similarity_threshold': parsed['similarity_threshold'],
-        'reference_data_size': parsed['reference_data_size']
+        'reference_data_size': parsed['reference_data_size'],
+        'model_params': parsed['model_params'],
+        'seed': parsed['seed']
     }
 
     return parsed, learner, optimizer, params
@@ -149,9 +153,15 @@ def main():
     # parse command line arguments
     options, learner, optimizer, params = read_options()
 
+    # 对于enhanced_mnist直接使用正确的路径
+    if options['dataset'] == 'enhanced_mnist':
+        train_path = os.path.join('data', options['dataset'], 'train')
+        test_path = os.path.join('data', options['dataset'], 'test')
+    else:
+        train_path = os.path.join('data', options['dataset'], 'data', 'train')
+        test_path = os.path.join('data', options['dataset'], 'data', 'test')
+
     # read data
-    train_path = os.path.join('data', options['dataset'], 'data', 'train')
-    test_path = os.path.join('data', options['dataset'], 'data', 'test')
     dataset = read_data(train_path, test_path)
 
     # call appropriate trainer

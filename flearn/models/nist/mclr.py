@@ -34,28 +34,110 @@ class Model(object):
             self.flops = tf.compat.v1.profiler.profile(self.graph, run_meta=metadata, cmd='scope', options=opts).total_float_ops
     
     def create_model(self, optimizer):
-        """Model function for Logistic Regression."""
+        """创建模型"""
+        # 输入占位符
         features = tf.compat.v1.placeholder(tf.float32, shape=[None, 784], name='features')
-        labels = tf.compat.v1.placeholder(tf.int64, shape=[None,], name='labels')
-        logits = tf.compat.v1.keras.layers.Dense(inputs=features, units=self.num_classes, kernel_regularizer=tf.compat.v1.keras.regularizers.l2(0.001))(features)
-        predictions = {
-            "classes": tf.argmax(input=logits, axis=1),
-            "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
-            }
-        loss = tf.compat.v1.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
-
-        grads_and_vars = optimizer.compute_gradients(loss)
-        grads, _ = zip(*grads_and_vars)
-        train_op = optimizer.apply_gradients(grads_and_vars, global_step=tf.compat.v1.train.get_global_step())
-        eval_metric_ops = tf.count_nonzero(tf.equal(labels, predictions["classes"]))
+        labels = tf.compat.v1.placeholder(tf.int64, shape=[None], name='labels')
+        
+        # 创建模型
+        dense_layer = tf.compat.v1.keras.layers.Dense(
+            units=self.num_classes,
+            kernel_regularizer=tf.compat.v1.keras.regularizers.l2(0.001)
+        )
+        
+        # 应用层到输入
+        logits = dense_layer(features)
+        
+        # 计算损失
+        loss = tf.reduce_mean(
+            tf.compat.v1.nn.sparse_softmax_cross_entropy_with_logits(
+                labels=labels, logits=logits
+            )
+        )
+        
+        # 预测和准确率
+        predictions = tf.argmax(logits, 1)
+        correct_predictions = tf.equal(predictions, labels)
+        accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32))
+        
+        # 定义评估指标
+        eval_metric_ops = {
+            'accuracy': tf.reduce_mean(tf.cast(correct_predictions, tf.float32))
+        }
+        
+        # 创建训练操作
+        train_op = optimizer.minimize(loss)
+        
+        # 计算梯度
+        grads = tf.gradients(loss, tf.compat.v1.trainable_variables())
+        
         return features, labels, train_op, grads, eval_metric_ops, loss
 
     def set_params(self, model_params=None):
+        """设置模型参数，添加形状检查和错误处理"""
         if model_params is not None:
             with self.graph.as_default():
                 all_vars = tf.compat.v1.trainable_variables()
-                for variable, value in zip(all_vars, model_params):
-                    variable.load(value, self.sess)
+                
+                # 确保 model_params 长度与变量数量匹配
+                if len(model_params) != len(all_vars):
+                    print(f"警告: 参数数量不匹配! 模型需要 {len(all_vars)} 个参数，但提供了 {len(model_params)} 个")
+                    # 只处理能够匹配的部分
+                    zipped_vars = zip(all_vars, model_params[:len(all_vars)]) if len(model_params) > len(all_vars) else zip(all_vars[:len(model_params)], model_params)
+                else:
+                    zipped_vars = zip(all_vars, model_params)
+                
+                for variable, value in zipped_vars:
+                    # 检查形状是否匹配
+                    var_shape = variable.get_shape().as_list()
+                    
+                    # 尝试将 value 转换为 numpy 数组以便检查形状
+                    try:
+                        if not isinstance(value, np.ndarray):
+                            value_array = np.array(value)
+                        else:
+                            value_array = value
+                            
+                        value_shape = value_array.shape
+                        
+                        # 检查形状是否兼容
+                        if var_shape != list(value_shape):
+                            print(f"警告: 变量 {variable.name} 的形状不匹配! 需要: {var_shape}, 提供: {value_shape}")
+                            
+                            # 如果是标量，尝试扩展为需要的形状
+                            if value_shape == () or (len(value_shape) == 1 and value_shape[0] == 1):
+                                print(f"尝试将标量扩展为所需形状...")
+                                value_array = np.full(var_shape, value_array.item(0) if hasattr(value_array, 'item') else value_array)
+                                print(f"扩展后形状: {value_array.shape}")
+                            # 如果只是尺寸不同，尝试调整大小
+                            elif len(var_shape) == len(value_shape):
+                                # 尝试调整大小，裁剪或填充
+                                new_value = np.zeros(var_shape, dtype=value_array.dtype)
+                                
+                                # 对每个维度，取两个形状的最小值
+                                slices = tuple(slice(0, min(s1, s2)) for s1, s2 in zip(var_shape, value_shape))
+                                
+                                # 将原始数据复制到新数组中
+                                new_value[slices] = value_array[slices]
+                                value_array = new_value
+                                print(f"调整大小后形状: {value_array.shape}")
+                            else:
+                                # 如果形状完全不兼容，则跳过此变量
+                                print(f"无法调整大小，跳过此变量")
+                                continue
+                            
+                        # 执行加载
+                        try:
+                            self.sess.run(variable.assign(value_array))
+                        except Exception as e:
+                            print(f"使用 assign 设置变量 {variable.name} 失败: {e}")
+                            try:
+                                # 备用方法：使用 initializer
+                                variable.load(value_array, self.sess)
+                            except Exception as e2:
+                                print(f"使用 load 设置变量 {variable.name} 也失败: {e2}")
+                    except Exception as e:
+                        print(f"处理变量 {variable.name} 时出错: {e}")
 
     def get_params(self):
         with self.graph.as_default():

@@ -54,6 +54,7 @@ class Server(BaseFedarated):
                 num, client_grad = c.get_grads(model_len)
                 local_grads.append(client_grad)
                 num_samples.append(num)
+                print(f"For client: {c}, num = {num}, len(client_grad) = {len(client_grad)}, len(global_grads) = {len(global_grads)}")
                 global_grads = np.add(global_grads, client_grad * num)
             global_grads = global_grads * 1.0 / np.sum(np.asarray(num_samples))
 

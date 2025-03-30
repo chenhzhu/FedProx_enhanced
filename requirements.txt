@@ -1,6 +1,5 @@
 numpy
 scipy
-# tensorflow
 Pillow
 matplotlib
 jupyter
