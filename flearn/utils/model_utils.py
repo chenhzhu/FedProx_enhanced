@@ -48,49 +48,47 @@ def batch_data_multiple_iters(data, batch_size, num_iters):
         yield (batched_x, batched_y)
 
 def read_data(train_data_dir, test_data_dir):
-    """读取客户端数据"""
+    """Read client data"""
     clients = []
     groups = []
     train_data = {}
     test_data = {}
 
-    # 检查是否为增强版MNIST数据集
+    # Check if this is enhanced MNIST dataset
     is_enhanced_mnist = 'enhanced_mnist' in train_data_dir
     
     train_files = os.listdir(train_data_dir)
     train_files = [f for f in train_files if f.endswith('.json')]
     
     if is_enhanced_mnist:
-        # 处理增强版MNIST数据集
-        print("检测到增强版MNIST数据集，使用特殊处理...")
+        print("Detected enhanced MNIST dataset, using special processing...")
         
-        # 处理训练数据
         for f in train_files:
-            client_id = f.split('.')[0]  # 例如：client_0.json -> client_0
+            client_id = f.split('.')[0]  # e.g.: client_0.json -> client_0
             clients.append(client_id)
             
             file_path = os.path.join(train_data_dir, f)
             with open(file_path, 'r') as inf:
                 cdata = json.load(inf)
             
-            # 增强版MNIST中每个客户端数据格式: {'x': [...], 'y': [...], 'type': '...', ...}
+            # Enhanced MNIST client data format: {'x': [...], 'y': [...], 'type': '...', ...}
             train_data[client_id] = {}
             train_data[client_id]['x'] = np.array(cdata['x'])
             train_data[client_id]['y'] = np.array(cdata['y'])
         
-        # 处理测试数据
+        # Process test data
         test_file = os.path.join(test_data_dir, 'all_data.json')
         with open(test_file, 'r') as inf:
             test_cdata = json.load(inf)
         test_data['x'] = np.array(test_cdata['x'])
         test_data['y'] = np.array(test_cdata['y'])
         
-        # 预处理数据 - 将数据转换为正确的格式
+        # Preprocess data - Convert data to correct format
         from flearn.utils.enhanced_dataset_loader import preprocess_enhanced_mnist_data
         train_data, test_data = preprocess_enhanced_mnist_data(train_data, test_data)
         
     else:
-        # 原始数据处理逻辑
+        # Original data processing logic
         for f in train_files:
             file_path = os.path.join(train_data_dir, f)
             with open(file_path, 'r') as inf:
