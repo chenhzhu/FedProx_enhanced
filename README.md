@@ -23,7 +23,7 @@ Enhanced FedProx builds upon the original FedProx framework with the following k
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/FedProx_enhanced.git
+git clone https://github.com/chenhzhu/FedProx_enhanced.git
 cd FedProx_enhanced
 
 # Create a virtual environment (optional)
