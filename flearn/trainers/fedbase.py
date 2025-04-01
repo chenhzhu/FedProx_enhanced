@@ -47,49 +47,15 @@ class BaseFedarated(object):
         return all_clients
 
     def train_error_and_loss(self):
-        """获取训练错误率和损失"""
         num_samples = []
         tot_correct = []
         losses = []
 
         for c in self.clients:
-            try:
-                # 尝试获取标准返回值
-                ct, cl, ns = c.train_error_and_loss()
-            except ValueError:
-                # 如果返回值不是3个，尝试处理
-                try:
-                    # 假设返回了两个值：正确数和损失
-                    ct, cl = c.train_error_and_loss()
-                    ns = getattr(c, 'num_samples', 0)
-                    if ns == 0:
-                        # 如果无法获取样本数，使用默认值
-                        print(f"Warning: Client {c.id} train_error_and_loss() returned only 2 values and no num_samples attribute.")
-                        # 尝试从训练数据获取样本数
-                        if hasattr(c, 'train_data') and hasattr(c.train_data, '__len__'):
-                            ns = len(c.train_data)
-                        else:
-                            ns = 1  # 默认值
-                except Exception as e:
-                    print(f"Error in train_error_and_loss for client {c.id}: {e}")
-                    ct, cl, ns = 0, 0, 0  # 出错时使用默认值
-            
-            # 处理ct可能是字典的情况
-            if isinstance(ct, dict):
-                if 'accuracy' in ct:
-                    # 如果字典包含准确率，转换为正确预测数
-                    accuracy = ct['accuracy']
-                    correct_samples = accuracy * ns
-                    ct = correct_samples
-                else:
-                    # 如果字典中没有准确率，使用0
-                    print(f"Warning: Client {c.id} returned a dict without 'accuracy' key in train_error_and_loss(). Using 0.")
-                    ct = 0
-            
-            # 确保所有值都是数值类型
-            tot_correct.append(float(ct))
+            ct, cl, ns = c.train_error_and_loss() 
+            tot_correct.append(ct*1.0)
             num_samples.append(ns)
-            losses.append(float(cl))
+            losses.append(cl*1.0)
         
         ids = [c.id for c in self.clients]
         groups = [c.group for c in self.clients]
@@ -123,51 +89,18 @@ class BaseFedarated(object):
  
   
     def test(self):
-        '''Tests self.latest_model on given clients'''
+        '''tests self.latest_model on given clients
+        '''
         num_samples = []
         tot_correct = []
-        losses = []
-        
+        self.client_model.set_params(self.latest_model)
         for c in self.clients:
-            try:
-                # 尝试获取3个返回值
-                ct, cl, ns = c.test()
-            except ValueError:
-                # 如果只返回2个值，假设缺少的是ns（样本数）
-                try:
-                    ct, cl = c.test()
-                    # 尝试从客户端属性获取样本数
-                    ns = getattr(c, 'num_samples', 0)
-                    if ns == 0:
-                        # 如果客户端没有num_samples属性，使用一个默认值
-                        print(f"Warning: Client {c.id} test() returned only 2 values and no num_samples attribute. Using default.")
-                        # 尝试从测试数据中获取样本数
-                        if hasattr(c, 'eval_data') and hasattr(c.eval_data, '__len__'):
-                            ns = len(c.eval_data)
-                        else:
-                            ns = 1  # 如果无法确定样本数，使用1作为默认值
-                except Exception as e:
-                    print(f"Error testing client {c.id}: {e}")
-                    ct, cl, ns = 0, 0, 0  # 出错时使用默认值
-            
-            # 确保ct是数值而不是字典
-            if isinstance(ct, dict):
-                if 'accuracy' in ct:
-                    accuracy = ct['accuracy']
-                    correct_samples = accuracy * ns
-                    ct = correct_samples
-                else:
-                    print(f"Warning: Client {c.id} returned a dict without 'accuracy' key. Using 0.")
-                    ct = 0
-            
-            tot_correct.append(float(ct))
+            ct, ns = c.test()
+            tot_correct.append(ct*1.0)
             num_samples.append(ns)
-            losses.append(float(cl))
-        
         ids = [c.id for c in self.clients]
         groups = [c.group for c in self.clients]
-        
-        return ids, groups, num_samples, tot_correct, losses
+        return ids, groups, num_samples, tot_correct
 
     def save(self):
         pass
@@ -190,64 +123,14 @@ class BaseFedarated(object):
         return indices, np.asarray(self.clients)[indices]
 
     def aggregate(self, wsolns):
-        """
-        Aggregate weight solutions from selected clients
-        
-        Args:
-            wsolns: List of (weight, solution) tuples from clients
-            
-        Returns:
-            Aggregated solution
-        """
         total_weight = 0.0
-        base = [0] * len(self.latest_model)
-        
-        for (w, soln) in wsolns:  # w is the weight, soln is the solution
-            # 确保 w 是一个数值
-            if not isinstance(w, (int, float)):
-                print(f"Warning: Expected numeric weight, got {type(w)}. Converting to float.")
-                try:
-                    w = float(w)
-                except:
-                    print(f"Error converting weight to float. Using weight=1.0")
-                    w = 1.0
-            
+        base = [0]*len(wsolns[0][1])
+        for (w, soln) in wsolns:  # w is the number of local samples
             total_weight += w
-            
-            # 遍历解决方案中的每个参数
             for i, v in enumerate(soln):
-                if i >= len(base) or i >= len(self.latest_model):
-                    continue  # 跳过超出范围的参数
-                    
-                # 确保 v 是可以进行数值运算的类型
-                if isinstance(v, np.ndarray):
-                    # 对数组使用 astype
-                    base[i] += w * v.astype(np.float64)
-                elif isinstance(v, (int, float)):
-                    # 对标量直接进行数值计算
-                    base[i] += w * float(v)
-                else:
-                    # 对其他类型，尝试转换后计算
-                    try:
-                        base[i] += w * np.array(v, dtype=np.float64)
-                    except:
-                        print(f"Warning: Could not process parameter at index {i} with type {type(v)}")
-        
-        # 检查总权重是否为零，避免除零错误
-        if total_weight == 0:
-            return self.latest_model
-        
-        # 按总权重归一化
-        for i in range(len(base)):
-            if isinstance(base[i], np.ndarray):
-                base[i] = base[i] / total_weight
-            elif isinstance(base[i], (int, float)):
-                base[i] = base[i] / total_weight
-            else:
-                try:
-                    base[i] = base[i] / total_weight
-                except:
-                    base[i] = self.latest_model[i]  # 如果归一化失败，使用最新模型的参数
-        
-        return base
+                base[i] += w*v.astype(np.float64)
+
+        averaged_soln = [v / total_weight for v in base]
+
+        return averaged_soln
 
