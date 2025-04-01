@@ -5,8 +5,8 @@ python3 -u main.py --dataset=$1 --optimizer='fedprox'  \
             --num_epochs=20 \
             --model='mclr' \
             --drop_percent=$2 \
-            --reference_data_size=100
-            # --mu=$3 \
+            # --reference_data_size=100
+            --mu=$3 \
             # --use_enhanced=true \
             # --similarity_threshold=0.5 \
 
