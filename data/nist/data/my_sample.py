@@ -35,7 +35,7 @@ def load_image(file_name):
     size = (28, 28)
     img = Image.open(file_name)
     gray = img.convert('L')
-    gray.thumbnail(size, Image.ANTIALIAS)
+    gray.thumbnail(size, Image.Resampling.LANCZOS)
     arr = np.asarray(gray).copy()
     vec = arr.flatten()
     vec = vec / 255 # scale all pixel values to between 0 and 1
