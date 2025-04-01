@@ -28,6 +28,7 @@ cd FedProx_enhanced
 
 # Create a virtual environment (optional)
 conda create -n fedprox python=3.12
+conda activate fedprox
 
 # Install dependencies
 pip install -r requirements.txt
