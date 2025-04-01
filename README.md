@@ -13,11 +13,11 @@ Enhanced FedProx builds upon the original FedProx framework with the following k
 
 ## Installation
 
-### Requirements
+### Key Requirements
 - Python 3.12.9
 - TensorFlow 2.19
-- NumPy
-- Matplotlib
+- NumPy 2.1.3
+- Matplotlib 3.10.1
 
 ### Setup
 
